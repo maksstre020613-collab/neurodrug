@@ -3,11 +3,12 @@ import os
 import requests
 from flask import Flask, request
 from threading import Thread
-from telegram import Update
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application,
     CommandHandler,
     MessageHandler,
+    CallbackQueryHandler,
     filters,
     ContextTypes,
 )
@@ -91,13 +92,28 @@ def ask_ai(user_id, message):
 # === КОМАНДЫ ===
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🧠 Открыть чат", web_app={"url": "https://neurodrug.onrender.com/chat.html"})],
+        [InlineKeyboardButton("📋 Команды", callback_data="show_commands")]
+    ])
+    
     await update.message.reply_text(
         "🧠 Привет! Я **НейроДруг** — твой личный ИИ-помощник!\n\n"
-        "💬 Просто напиши мне что-нибудь — я отвечу!\n"
-        "📱 Или нажми кнопку ниже для красивого чата!\n\n"
-        "Команды:\n"
+        "💬 Напиши мне что-нибудь или открой красивый чат!",
+        parse_mode="Markdown",
+        reply_markup=keyboard
+    )
+
+
+async def show_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.message.reply_text(
+        "📋 **Команды:**\n\n"
+        "/start — главное меню\n"
         "/new — новый диалог\n"
-        "/help — помощь",
+        "/help — помощь\n\n"
+        "💬 Или просто напиши мне сообщение!",
         parse_mode="Markdown"
     )
 
@@ -149,6 +165,7 @@ def main():
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("new", new_chat))
+    application.add_handler(CallbackQueryHandler(show_commands, pattern="show_commands"))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     
     print("🧠 НейроДруг запущен!")
