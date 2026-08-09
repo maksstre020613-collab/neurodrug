@@ -1,7 +1,7 @@
 import logging
 import os
 import requests
-from flask import Flask
+from flask import Flask, request
 from threading import Thread
 from telegram import Update
 from telegram.ext import (
@@ -32,6 +32,14 @@ app = Flask(__name__)
 def home():
     return "Bot is running!"
 
+@app.route('/chat', methods=['POST'])
+def chat_api():
+    data = request.get_json()
+    user_message = data.get('message', '')
+    user_id = data.get('user_id', 0)
+    reply = ask_ai(str(user_id), user_message)
+    return {"reply": reply or "Не могу ответить"}
+
 def run_web_server():
     app.run(host='0.0.0.0', port=PORT)
 
@@ -46,7 +54,7 @@ def ask_ai(user_id, message):
     try:
         if user_id not in chat_history:
             chat_history[user_id] = [
-                {"role": "system", "content": "Ты — полезный ассистент. Отвечай на русском языке."}
+                {"role": "system", "content": "Ты — НейроДруг, полезный ИИ-ассистент. Ты работаешь на технологии Llama от Meta. Отвечай на русском языке кратко и по делу. Не упоминай другие модели ИИ."}
             ]
         
         chat_history[user_id].append({"role": "user", "content": message})
@@ -85,7 +93,8 @@ def ask_ai(user_id, message):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "🧠 Привет! Я **НейроДруг** — твой личный ИИ-помощник!\n\n"
-        "💬 Просто напиши мне что-нибудь — я отвечу!\n\n"
+        "💬 Просто напиши мне что-нибудь — я отвечу!\n"
+        "📱 Или нажми кнопку ниже для красивого чата!\n\n"
         "Команды:\n"
         "/new — новый диалог\n"
         "/help — помощь",
