@@ -14,8 +14,7 @@ from telegram.ext import (
 
 # === НАСТРОЙКИ ===
 BOT_TOKEN = "8856132966:AAF_rF0buTVJO2WWc44IyC3eEvxAOPq9qGE"
-DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY")
-DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions"
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 
 PORT = int(os.environ.get("PORT", 10000))
 
@@ -39,15 +38,15 @@ def run_web_server():
 
 # === ИИ-ФУНКЦИЯ ===
 
-def ask_deepseek(user_id, message):
-    """Отправляет запрос к DeepSeek API."""
-    if not DEEPSEEK_API_KEY:
+def ask_ai(user_id, message):
+    """Отправляет запрос к Groq API (бесплатно)."""
+    if not GROQ_API_KEY:
         return None
     
     try:
         if user_id not in chat_history:
             chat_history[user_id] = [
-                {"role": "system", "content": "Ты — полезный ассистент. Отвечай на русском языке кратко и по делу."}
+                {"role": "system", "content": "Ты — полезный ассистент. Отвечай на русском языке."}
             ]
         
         chat_history[user_id].append({"role": "user", "content": message})
@@ -56,28 +55,28 @@ def ask_deepseek(user_id, message):
             chat_history[user_id] = [chat_history[user_id][0]] + chat_history[user_id][-20:]
         
         headers = {
-            "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {GROQ_API_KEY}"
         }
         
         data = {
-            "model": "deepseek-chat",
+            "model": "llama-3.3-70b-versatile",
             "messages": chat_history[user_id],
             "temperature": 0.7,
             "max_tokens": 2000
         }
         
-        resp = requests.post(DEEPSEEK_API_URL, headers=headers, json=data, timeout=20)
+        resp = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=data, timeout=20)
         
         if resp.status_code == 200:
             reply = resp.json()["choices"][0]["message"]["content"]
             chat_history[user_id].append({"role": "assistant", "content": reply})
             return reply
         else:
-            logger.error(f"DeepSeek ошибка: {resp.status_code}")
+            logger.error(f"Groq ошибка: {resp.status_code}")
             return None
     except Exception as e:
-        logger.error(f"DeepSeek ошибка: {e}")
+        logger.error(f"Groq ошибка: {e}")
         return None
 
 
@@ -119,10 +118,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await context.bot.send_chat_action(chat_id=update.message.chat_id, action="typing")
     
-    reply = ask_deepseek(user_id, user_message)
+    reply = ask_ai(user_id, user_message)
     
     if not reply:
-        reply = "😔 Извини, сейчас не могу ответить. Попробуй позже или спроси что-то другое."
+        reply = "😔 Извини, сейчас не могу ответить. Попробуй позже."
     
     if len(reply) > 4096:
         for i in range(0, len(reply), 4096):
