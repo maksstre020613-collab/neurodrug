@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>НейроДруг</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, sans-serif;
+            background: #1a1a2e;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .chat-container {
+            width: 100%;
+            max-width: 500px;
+            height: 100vh;
+            background: #16213e;
+            display: flex;
+            flex-direction: column;
+        }
+        .header {
+            background: #0f3460;
+            padding: 15px;
+            text-align: center;
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .message {
+            max-width: 80%;
+            padding: 10px 15px;
+            border-radius: 15px;
+            color: white;
+            word-wrap: break-word;
+        }
+        .user {
+            background: #0f3460;
+            align-self: flex-end;
+            border-bottom-right-radius: 5px;
+        }
+        .bot {
+            background: #533483;
+            align-self: flex-start;
+            border-bottom-left-radius: 5px;
+        }
+        .input-area {
+            display: flex;
+            padding: 10px;
+            background: #0f3460;
+            gap: 10px;
+        }
+        .input-area input {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 25px;
+            background: #1a1a2e;
+            color: white;
+            font-size: 16px;
+            outline: none;
+        }
+        .input-area button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 25px;
+            background: #533483;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .typing {
+            color: #888;
+            font-style: italic;
+            padding: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="header">🧠 НейроДруг</div>
+        <div class="messages" id="messages">
+            <div class="message bot">👋 Привет! Я НейроДруг. Задай мне вопрос!</div>
+        </div>
+        <div class="input-area">
+            <input type="text" id="input" placeholder="Напиши сообщение..." onkeypress="if(event.key==='Enter') send()">
+            <button onclick="send()">➤</button>
+        </div>
+    </div>
+
+    <script>
+        async function send() {
+            const input = document.getElementById('input');
+            const msg = input.value.trim();
+            if (!msg) return;
+            
+            addMessage(msg, 'user');
+            input.value = '';
+            
+            const typing = addTyping();
+            
+            try {
+                const resp = await fetch('https://neurodrug.onrender.com/chat', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({message: msg, user_id: 12345})
+                });
+                const data = await resp.json();
+                typing.remove();
+                addMessage(data.reply, 'bot');
+            } catch(e) {
+                typing.remove();
+                addMessage('Ошибка соединения', 'bot');
+            }
+        }
+        
+        function addMessage(text, type) {
+            const div = document.createElement('div');
+            div.className = 'message ' + type;
+            div.textContent = text;
+            document.getElementById('messages').appendChild(div);
+            div.scrollIntoView({behavior: 'smooth'});
+        }
+        
+        function addTyping() {
+            const div = document.createElement('div');
+            div.className = 'typing';
+            div.textContent = 'НейроДруг печатает...';
+            document.getElementById('messages').appendChild(div);
+            div.scrollIntoView({behavior: 'smooth'});
+            return div;
+        }
+    </script>
+</body>
+</html>
