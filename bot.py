@@ -39,60 +39,43 @@ def run_web_server():
 # === ИИ-ФУНКЦИИ ===
 
 def ask_ai(message):
-    """Основной ИИ через DuckDuckGo."""
+    """Основной ИИ через Groq (бесплатно)."""
     try:
-        status_resp = requests.get(
-            "https://duckduckgo.com/duckchat/v1/status",
-            headers={"x-vqd-accept": "1"},
-            timeout=10
-        )
-        token = status_resp.headers.get("x-vqd-4", "")
-        if not token:
-            return None
-        
+        url = "https://api.groq.com/openai/v1/chat/completions"
         headers = {
             "Content-Type": "application/json",
-            "x-vqd-4": token
+            "Authorization": "Bearer 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"
         }
         data = {
-            "model": "gpt-4o-mini",
-            "messages": [{"role": "user", "content": message}]
+            "model": "llama-3.3-70b-versatile",
+            "messages": [{"role": "user", "content": message}],
+            "temperature": 0.7,
+            "max_tokens": 2000
         }
-        resp = requests.post(
-            "https://duckduckgo.com/duckchat/v1/chat",
-            headers=headers,
-            json=data,
-            timeout=20
-        )
+        resp = requests.post(url, headers=headers, json=data, timeout=15)
         if resp.status_code == 200:
-            result = ""
-            for line in resp.text.split("\n"):
-                if line.startswith("data: "):
-                    try:
-                        chunk = json.loads(line[6:])
-                        if "message" in chunk:
-                            result += chunk.get("message", "")
-                    except:
-                        pass
-            return result.strip() if result.strip() else None
+            return resp.json()["choices"][0]["message"]["content"]
         return None
     except:
         return None
 
 
 def ask_backup(message):
-    """Запасной ИИ через Gemini."""
+    """Запасной ИИ через HuggingFace (бесплатно)."""
     try:
-        url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
-        params = {"key": "AIzaSyBdK0LQ8xXH3QmJk9Y0vZ2wN5bXq7cU1Rg"}
-        headers = {"Content-Type": "application/json"}
-        data = {
-            "contents": [{"parts": [{"text": message}]}]
+        url = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.3"
+        headers = {
+            "Content-Type": "application/json",
         }
-        resp = requests.post(url, params=params, headers=headers, json=data, timeout=15)
+        data = {
+            "inputs": f"<s>[INST] {message} [/INST]",
+            "parameters": {"max_new_tokens": 2000}
+        }
+        resp = requests.post(url, headers=headers, json=data, timeout=15)
         if resp.status_code == 200:
             result = resp.json()
-            return result["candidates"][0]["content"]["parts"][0]["text"]
+            if isinstance(result, list) and len(result) > 0:
+                return result[0].get("generated_text", "").split("[/INST]")[-1].strip()
         return None
     except:
         return None
