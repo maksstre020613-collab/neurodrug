@@ -14,7 +14,7 @@ from telegram.ext import (
 )
 
 # === НАСТРОЙКИ ===
-BOT_TOKEN = "8856132966:AAF_rF0buTVJO2WWc44IyC3eEvxAOPq9qGE"
+DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY")
 
 PORT = int(os.environ.get("PORT", 10000))
 
