@@ -1,6 +1,5 @@
 import logging
 import os
-import json
 import requests
 from flask import Flask
 from threading import Thread
@@ -14,7 +13,9 @@ from telegram.ext import (
 )
 
 # === НАСТРОЙКИ ===
+BOT_TOKEN = "8856132966:AAF_rF0buTVJO2WWc44IyC3eEvxAOPq9qGE"
 DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY")
+DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions"
 
 PORT = int(os.environ.get("PORT", 10000))
 
@@ -36,87 +37,48 @@ def run_web_server():
     app.run(host='0.0.0.0', port=PORT)
 
 
-# === ИИ-ФУНКЦИИ ===
+# === ИИ-ФУНКЦИЯ ===
 
-def ask_ai(message):
-    """Основной ИИ через Groq (бесплатно)."""
+def ask_deepseek(user_id, message):
+    """Отправляет запрос к DeepSeek API."""
+    if not DEEPSEEK_API_KEY:
+        return None
+    
     try:
-        url = "https://api.groq.com/openai/v1/chat/completions"
+        if user_id not in chat_history:
+            chat_history[user_id] = [
+                {"role": "system", "content": "Ты — полезный ассистент. Отвечай на русском языке кратко и по делу."}
+            ]
+        
+        chat_history[user_id].append({"role": "user", "content": message})
+        
+        if len(chat_history[user_id]) > 21:
+            chat_history[user_id] = [chat_history[user_id][0]] + chat_history[user_id][-20:]
+        
         headers = {
-            "Content-Type": "application/json",
-            "Authorization": "Bearer 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"
+            "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
+            "Content-Type": "application/json"
         }
+        
         data = {
-            "model": "llama-3.3-70b-versatile",
-            "messages": [{"role": "user", "content": message}],
+            "model": "deepseek-chat",
+            "messages": chat_history[user_id],
             "temperature": 0.7,
             "max_tokens": 2000
         }
-        resp = requests.post(url, headers=headers, json=data, timeout=15)
+        
+        resp = requests.post(DEEPSEEK_API_URL, headers=headers, json=data, timeout=20)
+        
         if resp.status_code == 200:
-            return resp.json()["choices"][0]["message"]["content"]
+            reply = resp.json()["choices"][0]["message"]["content"]
+            chat_history[user_id].append({"role": "assistant", "content": reply})
+            return reply
+        else:
+            logger.error(f"DeepSeek ошибка: {resp.status_code}")
+            return None
+    except Exception as e:
+        logger.error(f"DeepSeek ошибка: {e}")
         return None
-    except:
-        return None
-
-
-def ask_backup(message):
-    """Запасной ИИ через HuggingFace (бесплатно)."""
-    try:
-        url = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.3"
-        headers = {
-            "Content-Type": "application/json",
-        }
-        data = {
-            "inputs": f"<s>[INST] {message} [/INST]",
-            "parameters": {"max_new_tokens": 2000}
-        }
-        resp = requests.post(url, headers=headers, json=data, timeout=15)
-        if resp.status_code == 200:
-            result = resp.json()
-            if isinstance(result, list) and len(result) > 0:
-                return result[0].get("generated_text", "").split("[/INST]")[-1].strip()
-        return None
-    except:
-        return None
-
-
-def ask_simple(message):
-    """Простые ответы."""
-    msg = message.lower()
-    
-    if any(w in msg for w in ["привет", "здравствуй", "hello", "hi", "ку"]):
-        return "👋 Привет! Я НейроДруг. Задай мне вопрос или просто поболтаем!"
-    
-    if "как дела" in msg:
-        return "😊 У меня всё отлично! Готов помочь. А у тебя как?"
-    
-    if "что ты умеешь" in msg or "что ты можешь" in msg:
-        return (
-            "🤖 Я умею:\n"
-            "💬 Общаться на любые темы\n"
-            "📝 Писать тексты и код\n"
-            "🤔 Отвечать на вопросы\n"
-            "📚 Объяснять сложные вещи\n\n"
-            "Просто напиши мне!"
-        )
-    
-    if any(w in msg for w in ["спасибо", "благодарю"]):
-        return "Всегда пожалуйста! Обращайся ещё! 😊"
-    
-    if any(w in msg for w in ["пока", "до встречи"]):
-        return "До встречи! Буду ждать! 👋"
-    
-    if "?" in msg:
-        return (
-            "🤔 Интересный вопрос! Попробуй переформулировать или спроси что-то ещё.\n"
-            "Я постоянно учусь новому!"
-        )
-    
-    return (
-        "📝 Я понял твоё сообщение.\n"
-        "Попробуй спросить позже или задай другой вопрос!"
-    )
 
 
 # === КОМАНДЫ ===
@@ -157,13 +119,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await context.bot.send_chat_action(chat_id=update.message.chat_id, action="typing")
     
-    reply = ask_ai(user_message)
+    reply = ask_deepseek(user_id, user_message)
     
     if not reply:
-        reply = ask_backup(user_message)
-    
-    if not reply:
-        reply = ask_simple(user_message)
+        reply = "😔 Извини, сейчас не могу ответить. Попробуй позже или спроси что-то другое."
     
     if len(reply) > 4096:
         for i in range(0, len(reply), 4096):
