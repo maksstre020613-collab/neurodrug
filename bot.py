@@ -33,6 +33,11 @@ app = Flask(__name__)
 def home():
     return "Bot is running!"
 
+@app.route('/chat.html')
+def chat_page():
+    with open('chat.html', 'r', encoding='utf-8') as f:
+        return f.read()
+
 @app.route('/chat', methods=['POST'])
 def chat_api():
     data = request.get_json()
