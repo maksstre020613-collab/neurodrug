@@ -6,118 +6,99 @@
     <title>НейроДруг</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: -apple-system, sans-serif;
-            background: #1a1a2e;
-            height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-        .chat-container {
-            width: 100%;
-            max-width: 500px;
-            height: 100vh;
-            background: #16213e;
-            display: flex;
-            flex-direction: column;
-        }
-        .header {
-            background: #0f3460;
-            padding: 15px;
-            text-align: center;
-            color: white;
-            font-size: 18px;
-            font-weight: bold;
-        }
-        .messages {
-            flex: 1;
-            overflow-y: auto;
-            padding: 15px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-        .message {
-            max-width: 80%;
-            padding: 10px 15px;
-            border-radius: 15px;
-            color: white;
-            word-wrap: break-word;
-        }
-        .user {
-            background: #0f3460;
-            align-self: flex-end;
-            border-bottom-right-radius: 5px;
-        }
-        .bot {
-            background: #533483;
-            align-self: flex-start;
-            border-bottom-left-radius: 5px;
-        }
-        .input-area {
-            display: flex;
-            padding: 10px;
-            background: #0f3460;
-            gap: 10px;
-        }
-        .input-area input {
-            flex: 1;
-            padding: 12px;
-            border: none;
-            border-radius: 25px;
-            background: #1a1a2e;
-            color: white;
-            font-size: 16px;
-            outline: none;
-        }
-        .input-area button {
-            padding: 12px 20px;
-            border: none;
-            border-radius: 25px;
-            background: #533483;
-            color: white;
-            font-size: 16px;
-            cursor: pointer;
-        }
-        .typing {
-            color: #888;
-            font-style: italic;
-            padding: 10px;
-        }
+        body { font-family: -apple-system, sans-serif; background: #1a1a2e; height: 100vh; display: flex; justify-content: center; align-items: center; }
+        .container { width: 100%; max-width: 500px; height: 100vh; background: #16213e; display: flex; }
+        
+        /* Боковая панель */
+        .sidebar { width: 250px; background: #0f3460; padding: 10px; display: flex; flex-direction: column; gap: 5px; overflow-y: auto; }
+        .sidebar button { width: 100%; padding: 10px; background: #533483; color: white; border: none; border-radius: 10px; cursor: pointer; font-size: 14px; }
+        .chat-item { padding: 10px; background: #1a1a2e; color: white; border-radius: 10px; cursor: pointer; font-size: 13px; text-align: left; border: none; width: 100%; margin-bottom: 5px; }
+        .chat-item.active { background: #533483; }
+        
+        /* Чат */
+        .chat-container { flex: 1; display: flex; flex-direction: column; }
+        .header { background: #0f3460; padding: 15px; text-align: center; color: white; font-size: 16px; font-weight: bold; }
+        .messages { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; }
+        .message { max-width: 80%; padding: 10px 15px; border-radius: 15px; color: white; word-wrap: break-word; }
+        .user { background: #0f3460; align-self: flex-end; border-bottom-right-radius: 5px; }
+        .bot { background: #533483; align-self: flex-start; border-bottom-left-radius: 5px; }
+        .input-area { display: flex; padding: 10px; background: #0f3460; gap: 10px; }
+        .input-area input { flex: 1; padding: 12px; border: none; border-radius: 25px; background: #1a1a2e; color: white; font-size: 16px; outline: none; }
+        .input-area button { padding: 12px 20px; border: none; border-radius: 25px; background: #533483; color: white; font-size: 16px; cursor: pointer; }
+        .typing { color: #888; font-style: italic; padding: 10px; }
     </style>
 </head>
 <body>
-    <div class="chat-container">
-        <div class="header">🧠 НейроДруг</div>
-        <div class="messages" id="messages">
-            <div class="message bot">👋 Привет! Я НейроДруг. Задай мне вопрос!</div>
+    <div class="container">
+        <div class="sidebar" id="sidebar">
+            <button onclick="newChat()">➕ Новый чат</button>
+            <div id="chatList"></div>
         </div>
-        <div class="input-area">
-            <input type="text" id="input" placeholder="Напиши сообщение..." onkeypress="if(event.key==='Enter') send()">
-            <button onclick="send()">➤</button>
+        <div class="chat-container">
+            <div class="header">🧠 НейроДруг</div>
+            <div class="messages" id="messages">
+                <div class="message bot">👋 Привет! Выбери чат или создай новый!</div>
+            </div>
+            <div class="input-area">
+                <input type="text" id="input" placeholder="Напиши сообщение..." onkeypress="if(event.key==='Enter') send()">
+                <button onclick="send()">➤</button>
+            </div>
         </div>
     </div>
-
     <script>
+        let chats = {};
+        let currentChat = null;
+        
+        function newChat() {
+            const id = Date.now();
+            chats[id] = [];
+            currentChat = id;
+            renderChats();
+            document.getElementById('messages').innerHTML = '';
+        }
+        
+        function switchChat(id) {
+            currentChat = id;
+            renderChats();
+            const msgs = document.getElementById('messages');
+            msgs.innerHTML = '';
+            if (chats[id]) {
+                chats[id].forEach(m => addMessage(m.text, m.type));
+            }
+        }
+        
+        function renderChats() {
+            const list = document.getElementById('chatList');
+            list.innerHTML = '';
+            Object.keys(chats).forEach(id => {
+                const btn = document.createElement('button');
+                btn.className = 'chat-item' + (id == currentChat ? ' active' : '');
+                btn.textContent = '💬 Чат ' + new Date(parseInt(id)).toLocaleTimeString();
+                btn.onclick = () => switchChat(id);
+                list.appendChild(btn);
+            });
+        }
+        
         async function send() {
             const input = document.getElementById('input');
             const msg = input.value.trim();
-            if (!msg) return;
+            if (!msg || !currentChat) return;
             
+            if (!chats[currentChat]) chats[currentChat] = [];
+            chats[currentChat].push({text: msg, type: 'user'});
             addMessage(msg, 'user');
             input.value = '';
             
             const typing = addTyping();
-            
             try {
-                const resp = await fetch('https://neurodrug.onrender.com/chat', {
+                const resp = await fetch('/chat', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({message: msg, user_id: 12345})
+                    body: JSON.stringify({message: msg, user_id: currentChat})
                 });
                 const data = await resp.json();
                 typing.remove();
+                chats[currentChat].push({text: data.reply, type: 'bot'});
                 addMessage(data.reply, 'bot');
             } catch(e) {
                 typing.remove();
@@ -141,6 +122,8 @@
             div.scrollIntoView({behavior: 'smooth'});
             return div;
         }
+        
+        newChat();
     </script>
 </body>
 </html>
