@@ -15,7 +15,7 @@ from telegram.ext import (
 
 # === НАСТРОЙКИ ===
 BOT_TOKEN = "8856132966:AAF_rF0buTVJO2WWc44IyC3eEvxAOPq9qGE"
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
 PORT = int(os.environ.get("PORT", 10000))
 
@@ -53,44 +53,45 @@ def run_web_server():
 # === ИИ-ФУНКЦИЯ ===
 
 def ask_ai(user_id, message):
-    """Отправляет запрос к Qwen через Groq API (бесплатно)."""
-    if not GROQ_API_KEY:
+    """Отправляет запрос к Gemini API (бесплатно)."""
+    if not GEMINI_API_KEY:
         return None
     
     try:
         if user_id not in chat_history:
             chat_history[user_id] = [
-                {"role": "system", "content": "Ты — НейроДруг, полезный ИИ-ассистент. Отвечай на русском языке кратко и по делу. Не упоминай другие модели ИИ."}
+                {"role": "user", "parts": [{"text": "Ты — НейроДруг, полезный ИИ-ассистент. Отвечай на русском языке кратко и по делу."}]},
+                {"role": "model", "parts": [{"text": "Понял! Я НейроДруг, готов помочь."}]}
             ]
         
-        chat_history[user_id].append({"role": "user", "content": message})
+        chat_history[user_id].append({"role": "user", "parts": [{"text": message}]})
         
         if len(chat_history[user_id]) > 21:
-            chat_history[user_id] = [chat_history[user_id][0]] + chat_history[user_id][-20:]
+            chat_history[user_id] = chat_history[user_id][:2] + chat_history[user_id][-18:]
         
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {GROQ_API_KEY}"
-        }
-        
+        url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+        params = {"key": GEMINI_API_KEY}
+        headers = {"Content-Type": "application/json"}
         data = {
-            "model": "deepseek-r1-distill-llama-70b",
-            "messages": chat_history[user_id],
-            "temperature": 0.7,
-            "max_tokens": 2000
+            "contents": chat_history[user_id],
+            "generationConfig": {
+                "temperature": 0.7,
+                "maxOutputTokens": 2000
+            }
         }
         
-        resp = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=data, timeout=20)
+        resp = requests.post(url, params=params, headers=headers, json=data, timeout=20)
         
         if resp.status_code == 200:
-            reply = resp.json()["choices"][0]["message"]["content"]
-            chat_history[user_id].append({"role": "assistant", "content": reply})
+            result = resp.json()
+            reply = result["candidates"][0]["content"]["parts"][0]["text"]
+            chat_history[user_id].append({"role": "model", "parts": [{"text": reply}]})
             return reply
         else:
-            logger.error(f"Groq ошибка: {resp.status_code}")
+            logger.error(f"Gemini ошибка: {resp.status_code}")
             return None
     except Exception as e:
-        logger.error(f"Groq ошибка: {e}")
+        logger.error(f"Gemini ошибка: {e}")
         return None
 
 
