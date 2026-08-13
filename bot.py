@@ -15,7 +15,6 @@ from telegram.ext import (
 
 # === НАСТРОЙКИ ===
 BOT_TOKEN = "8856132966:AAF_rF0buTVJO2WWc44IyC3eEvxAOPq9qGE"
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
 PORT = int(os.environ.get("PORT", 10000))
 
@@ -50,51 +49,66 @@ def run_web_server():
     app.run(host='0.0.0.0', port=PORT)
 
 
-# === ИИ-ФУНКЦИЯ ===
+# === ИИ-ФУНКЦИЯ (без ключей) ===
 
 def ask_ai(user_id, message):
-    """Отправляет запрос к Gemini API."""
-    if not GEMINI_API_KEY:
-        return None
+    """Бесплатный ИИ через открытые API."""
     
+    # Способ 1: DuckDuckGo AI Chat (без ключа)
     try:
-        if user_id not in chat_history:
-            chat_history[user_id] = [
-                {"role": "user", "parts": [{"text": "Ты — НейроДруг, полезный ИИ-ассистент. Отвечай на русском языке кратко и по делу."}]},
-                {"role": "model", "parts": [{"text": "Понял! Я НейроДруг, готов помочь."}]}
-            ]
+        status_resp = requests.get(
+            "https://duckduckgo.com/duckchat/v1/status",
+            headers={"x-vqd-accept": "1"},
+            timeout=10
+        )
+        token = status_resp.headers.get("x-vqd-4", "")
         
-        chat_history[user_id].append({"role": "user", "parts": [{"text": message}]})
-        
-        if len(chat_history[user_id]) > 21:
-            chat_history[user_id] = chat_history[user_id][:2] + chat_history[user_id][-18:]
-        
-        url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent"
-        headers = {
-            "Content-Type": "application/json",
-            "X-goog-api-key": GEMINI_API_KEY
-        }
-        data = {
-            "contents": chat_history[user_id],
-            "generationConfig": {
-                "temperature": 0.7,
-                "maxOutputTokens": 2000
+        if token:
+            headers = {
+                "Content-Type": "application/json",
+                "x-vqd-4": token
             }
+            data = {
+                "model": "gpt-4o-mini",
+                "messages": [{"role": "user", "content": message}]
+            }
+            resp = requests.post(
+                "https://duckduckgo.com/duckchat/v1/chat",
+                headers=headers,
+                json=data,
+                timeout=20
+            )
+            if resp.status_code == 200:
+                result = ""
+                for line in resp.text.split("\n"):
+                    if line.startswith("data: "):
+                        try:
+                            import json
+                            chunk = json.loads(line[6:])
+                            if "message" in chunk:
+                                result += chunk.get("message", "")
+                        except:
+                            pass
+                if result.strip():
+                    return result.strip()
+    except:
+        pass
+    
+    # Способ 2: OpenRouter бесплатные модели (без ключа)
+    try:
+        url = "https://openrouter.ai/api/v1/chat/completions"
+        headers = {"Content-Type": "application/json"}
+        data = {
+            "model": "google/gemini-2.0-flash-exp:free",
+            "messages": [{"role": "user", "content": message}]
         }
-        
-        resp = requests.post(url, headers=headers, json=data, timeout=20)
-        
+        resp = requests.post(url, headers=headers, json=data, timeout=15)
         if resp.status_code == 200:
-            result = resp.json()
-            reply = result["candidates"][0]["content"]["parts"][0]["text"]
-            chat_history[user_id].append({"role": "model", "parts": [{"text": reply}]})
-            return reply
-        else:
-            logger.error(f"Gemini ошибка: {resp.status_code} - {resp.text}")
-            return None
-    except Exception as e:
-        logger.error(f"Gemini ошибка: {e}")
-        return None
+            return resp.json()["choices"][0]["message"]["content"]
+    except:
+        pass
+    
+    return None
 
 
 # === КОМАНДЫ ===
