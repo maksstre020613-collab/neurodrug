@@ -74,7 +74,7 @@ def ask_ai(user_id, message):
         }
         
         data = {
-            "model": "qwen-qwq-32b",
+            "model": "openai/gpt-oss-120b",
             "messages": chat_history[user_id],
             "temperature": 0.7,
             "max_tokens": 2000
