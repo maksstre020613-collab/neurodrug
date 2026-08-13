@@ -53,7 +53,7 @@ def run_web_server():
 # === ИИ-ФУНКЦИЯ ===
 
 def ask_ai(user_id, message):
-    """Отправляет запрос к Gemini API (бесплатно)."""
+    """Отправляет запрос к Gemini API."""
     if not GEMINI_API_KEY:
         return None
     
@@ -69,9 +69,11 @@ def ask_ai(user_id, message):
         if len(chat_history[user_id]) > 21:
             chat_history[user_id] = chat_history[user_id][:2] + chat_history[user_id][-18:]
         
-        url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
-        params = {"key": GEMINI_API_KEY}
-        headers = {"Content-Type": "application/json"}
+        url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent"
+        headers = {
+            "Content-Type": "application/json",
+            "X-goog-api-key": GEMINI_API_KEY
+        }
         data = {
             "contents": chat_history[user_id],
             "generationConfig": {
@@ -80,7 +82,7 @@ def ask_ai(user_id, message):
             }
         }
         
-        resp = requests.post(url, params=params, headers=headers, json=data, timeout=20)
+        resp = requests.post(url, headers=headers, json=data, timeout=20)
         
         if resp.status_code == 200:
             result = resp.json()
@@ -88,7 +90,7 @@ def ask_ai(user_id, message):
             chat_history[user_id].append({"role": "model", "parts": [{"text": reply}]})
             return reply
         else:
-            logger.error(f"Gemini ошибка: {resp.status_code}")
+            logger.error(f"Gemini ошибка: {resp.status_code} - {resp.text}")
             return None
     except Exception as e:
         logger.error(f"Gemini ошибка: {e}")
