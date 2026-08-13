@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 import requests
 from flask import Flask, request
 from threading import Thread
@@ -50,6 +51,45 @@ def run_web_server():
     app.run(host='0.0.0.0', port=PORT)
 
 
+# === ОЧИСТКА MARKDOWN ===
+
+def clean_markdown(text):
+    """Преобразует текст для красивого отображения в Telegram."""
+    # Убираем таблицы
+    lines = text.split('\n')
+    cleaned = []
+    skip = False
+    for line in lines:
+        if line.strip().startswith('|') and '---' in line:
+            skip = True
+            continue
+        if line.strip().startswith('|'):
+            # Превращаем строку таблицы в текст
+            parts = [p.strip() for p in line.split('|') if p.strip()]
+            cleaned.append(' • '.join(parts))
+            continue
+        if skip and not line.strip().startswith('|'):
+            skip = False
+        if not skip:
+            cleaned.append(line)
+    
+    text = '\n'.join(cleaned)
+    
+    # Убираем ### заголовки
+    text = re.sub(r'^###\s+', '📌 ', text, flags=re.MULTILINE)
+    text = re.sub(r'^##\s+', '📌 ', text, flags=re.MULTILINE)
+    text = re.sub(r'^#\s+', '📌 ', text, flags=re.MULTILINE)
+    
+    # Убираем ** для жирного (оставляем для Telegram)
+    # Telegram использует *text* для жирного
+    text = re.sub(r'\*\*(.+?)\*\*', r'*\1*', text)
+    
+    # Убираем лишние пустые строки
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    
+    return text
+
+
 # === ИИ-ФУНКЦИЯ ===
 
 def ask_ai(user_id, message):
@@ -60,7 +100,7 @@ def ask_ai(user_id, message):
     try:
         if user_id not in chat_history:
             chat_history[user_id] = [
-                {"role": "system", "content": "Ты — НейроДруг, полезный ИИ-ассистент. Отвечай на русском языке кратко и по делу."}
+                {"role": "system", "content": "Ты — НейроДруг, полезный ИИ-ассистент. Отвечай на русском языке. Не используй таблицы. Используй простые списки и эмодзи."}
             ]
         
         chat_history[user_id].append({"role": "user", "content": message})
@@ -84,6 +124,7 @@ def ask_ai(user_id, message):
         
         if resp.status_code == 200:
             reply = resp.json()["choices"][0]["message"]["content"]
+            reply = clean_markdown(reply)
             chat_history[user_id].append({"role": "assistant", "content": reply})
             return reply
         else:
@@ -103,7 +144,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ])
     
     await update.message.reply_text(
-        "🧠 Привет! Я **НейроДруг** — твой личный ИИ-помощник!\n\n"
+        "🧠 Привет! Я *НейроДруг* — твой личный ИИ-помощник!\n\n"
         "💬 Напиши мне что-нибудь или открой красивый чат!",
         parse_mode="Markdown",
         reply_markup=keyboard
@@ -114,7 +155,7 @@ async def show_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     await query.message.reply_text(
-        "📋 **Команды:**\n\n"
+        "📋 *Команды:*\n\n"
         "/start — главное меню\n"
         "/new — новый диалог\n"
         "/help — помощь\n\n"
@@ -125,7 +166,7 @@ async def show_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "🧠 **НейроДруг — помощь**\n\n"
+        "🧠 *НейроДруг — помощь*\n\n"
         "Просто напиши сообщение — я отвечу!\n"
         "Я помню контекст диалога.\n\n"
         "/start — главное меню\n"
@@ -155,9 +196,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if len(reply) > 4096:
         for i in range(0, len(reply), 4096):
-            await update.message.reply_text(reply[i:i+4096])
+            await update.message.reply_text(reply[i:i+4096], parse_mode="Markdown")
     else:
-        await update.message.reply_text(reply)
+        await update.message.reply_text(reply, parse_mode="Markdown")
 
 
 def main():
