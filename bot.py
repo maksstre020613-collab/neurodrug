@@ -1,6 +1,5 @@
 import logging
 import os
-import json
 import requests
 from flask import Flask, request
 from threading import Thread
@@ -16,6 +15,7 @@ from telegram.ext import (
 
 # === НАСТРОЙКИ ===
 BOT_TOKEN = "8856132966:AAF_rF0buTVJO2WWc44IyC3eEvxAOPq9qGE"
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 
 PORT = int(os.environ.get("PORT", 10000))
 
@@ -53,62 +53,45 @@ def run_web_server():
 # === ИИ-ФУНКЦИЯ ===
 
 def ask_ai(user_id, message):
-    """Бесплатный ИИ через открытые API."""
+    """Отправляет запрос к Groq API."""
+    if not GROQ_API_KEY:
+        return None
     
-    # Способ 1: DuckDuckGo AI Chat
     try:
-        status_resp = requests.get(
-            "https://duckduckgo.com/duckchat/v1/status",
-            headers={"x-vqd-accept": "1"},
-            timeout=10
-        )
-        token = status_resp.headers.get("x-vqd-4", "")
+        if user_id not in chat_history:
+            chat_history[user_id] = [
+                {"role": "system", "content": "Ты — НейроДруг, полезный ИИ-ассистент. Отвечай на русском языке кратко и по делу."}
+            ]
         
-        if token:
-            headers = {
-                "Content-Type": "application/json",
-                "x-vqd-4": token
-            }
-            data = {
-                "model": "gpt-4o-mini",
-                "messages": [{"role": "user", "content": message}]
-            }
-            resp = requests.post(
-                "https://duckduckgo.com/duckchat/v1/chat",
-                headers=headers,
-                json=data,
-                timeout=20
-            )
-            if resp.status_code == 200:
-                result = ""
-                for line in resp.text.split("\n"):
-                    if line.startswith("data: "):
-                        try:
-                            chunk = json.loads(line[6:])
-                            if "message" in chunk:
-                                result += chunk.get("message", "")
-                        except:
-                            pass
-                if result.strip():
-                    return result.strip()
-    except:
-        pass
-    
-    # Способ 2: OpenRouter бесплатные модели
-    try:
-        url = "https://openrouter.ai/api/v1/chat/completions"
-        headers = {"Content-Type": "application/json"}
-        data = {
-            "model": "google/gemini-2.0-flash-exp:free",
-            "messages": [{"role": "user", "content": message}]
+        chat_history[user_id].append({"role": "user", "content": message})
+        
+        if len(chat_history[user_id]) > 21:
+            chat_history[user_id] = [chat_history[user_id][0]] + chat_history[user_id][-20:]
+        
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {GROQ_API_KEY}"
         }
-        resp = requests.post(url, headers=headers, json=data, timeout=15)
+        
+        data = {
+            "model": "openai/gpt-oss-120b",
+            "messages": chat_history[user_id],
+            "temperature": 0.7,
+            "max_tokens": 2000
+        }
+        
+        resp = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=data, timeout=20)
+        
         if resp.status_code == 200:
-            return resp.json()["choices"][0]["message"]["content"]
-    except:
-        pass
-    
-    return None
+            reply = resp.json()["choices"][0]["message"]["content"]
+            chat_history[user_id].append({"role": "assistant", "content": reply})
+            return reply
+        else:
+            logger.error(f"Groq ошибка: {resp.status_code}")
+            return None
+    except Exception as e:
+        logger.error(f"Groq ошибка: {e}")
+        return None
 
 
 # === КОМАНДЫ ===
