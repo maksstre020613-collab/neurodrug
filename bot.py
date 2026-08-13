@@ -60,7 +60,7 @@ def ask_ai(user_id, message):
     try:
         if user_id not in chat_history:
             chat_history[user_id] = [
-                {"role": "system", "content": "Ты — НейроДруг, полезный ИИ-ассистент. Ты работаешь на технологии Qwen от Alibaba. Отвечай на русском языке кратко и по делу. Не упоминай другие модели ИИ."}
+                {"role": "system", "content": "Ты — НейроДруг, полезный ИИ-ассистент. Отвечай на русском языке кратко и по делу. Не упоминай другие модели ИИ."}
             ]
         
         chat_history[user_id].append({"role": "user", "content": message})
