@@ -70,7 +70,7 @@ def ask_ai(user_id, message):
             chat_history[user_id] = chat_history[user_id][:2] + chat_history[user_id][-18:]
         
         url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
-        params = {"key": AQ.Ab8RN6LjfeFIEAAk4DC352G5XfT2mSIwo4fnN1dAQ39MNYk8Fg}
+        params = {"key": GEMINI_API_KEY}
         headers = {"Content-Type": "application/json"}
         data = {
             "contents": chat_history[user_id],
