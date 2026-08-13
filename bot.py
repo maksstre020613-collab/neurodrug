@@ -53,14 +53,14 @@ def run_web_server():
 # === ИИ-ФУНКЦИЯ ===
 
 def ask_ai(user_id, message):
-    """Отправляет запрос к Groq API (бесплатно)."""
+    """Отправляет запрос к Qwen через Groq API (бесплатно)."""
     if not GROQ_API_KEY:
         return None
     
     try:
         if user_id not in chat_history:
             chat_history[user_id] = [
-                {"role": "system", "content": "Ты — НейроДруг, полезный ИИ-ассистент. Ты работаешь на технологии Llama от Meta. Отвечай на русском языке кратко и по делу. Не упоминай другие модели ИИ."}
+                {"role": "system", "content": "Ты — НейроДруг, полезный ИИ-ассистент. Ты работаешь на технологии Qwen от Alibaba. Отвечай на русском языке кратко и по делу. Не упоминай другие модели ИИ."}
             ]
         
         chat_history[user_id].append({"role": "user", "content": message})
@@ -74,7 +74,7 @@ def ask_ai(user_id, message):
         }
         
         data = {
-            "model": "llama-3.3-70b-versatile",
+            "model": "qwen-qwq-32b",
             "messages": chat_history[user_id],
             "temperature": 0.7,
             "max_tokens": 2000
