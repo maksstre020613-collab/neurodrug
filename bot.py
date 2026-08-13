@@ -1,5 +1,6 @@
 import logging
 import os
+import json
 import requests
 from flask import Flask, request
 from threading import Thread
@@ -49,12 +50,12 @@ def run_web_server():
     app.run(host='0.0.0.0', port=PORT)
 
 
-# === ИИ-ФУНКЦИЯ (без ключей) ===
+# === ИИ-ФУНКЦИЯ ===
 
 def ask_ai(user_id, message):
     """Бесплатный ИИ через открытые API."""
     
-    # Способ 1: DuckDuckGo AI Chat (без ключа)
+    # Способ 1: DuckDuckGo AI Chat
     try:
         status_resp = requests.get(
             "https://duckduckgo.com/duckchat/v1/status",
@@ -83,7 +84,6 @@ def ask_ai(user_id, message):
                 for line in resp.text.split("\n"):
                     if line.startswith("data: "):
                         try:
-                            import json
                             chunk = json.loads(line[6:])
                             if "message" in chunk:
                                 result += chunk.get("message", "")
@@ -94,7 +94,7 @@ def ask_ai(user_id, message):
     except:
         pass
     
-    # Способ 2: OpenRouter бесплатные модели (без ключа)
+    # Способ 2: OpenRouter бесплатные модели
     try:
         url = "https://openrouter.ai/api/v1/chat/completions"
         headers = {"Content-Type": "application/json"}
