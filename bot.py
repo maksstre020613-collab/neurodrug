@@ -74,7 +74,7 @@ def ask_ai(user_id, message):
         }
         
         data = {
-            "model": "openai/gpt-oss-120b",
+            "model": "deepseek-r1-distill-llama-70b",
             "messages": chat_history[user_id],
             "temperature": 0.7,
             "max_tokens": 2000
